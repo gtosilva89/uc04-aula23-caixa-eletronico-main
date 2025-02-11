@@ -1,4 +1,5 @@
 import express, { Express, Response } from "express";
+import { contaCorrenteRoutes } from "./routes/conta-corrente-routes";
 
 class App {
   private readonly PORT = 3000;
@@ -16,6 +17,8 @@ class App {
     this._app.get("/health", (_, res: Response) => {
       res.send({ status: "OK" });
     });
+
+    this._app.use("/contas", contaCorrenteRoutes);
   }
 
   public start() {
