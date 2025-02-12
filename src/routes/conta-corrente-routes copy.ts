@@ -31,8 +31,27 @@ contaCorrenteRoutes.get(
       res.status(404).send({ error: "Conta não encontrada" });
       return;
     }
+    const {
+      id: idConta,
+      agencia,
+      numero,
+      nomeCliente,
+      cpf,
+      dataNascimento,
+      dataCriacao,
+      saldo,
+    } = conta;
 
-    res.status(200).send(buildContaResponse(conta));
+    res.send({
+      id: idConta,
+      agencia,
+      numero,
+      nome_cliente: nomeCliente,
+      cpf,
+      data_nascimento: dataNascimento,
+      data_criacao: dataCriacao,
+      saldo,
+    });
   }
 );
 
@@ -72,73 +91,52 @@ contaCorrenteRoutes.get(
   "/:agencia/:numero",
   authenticatedMiddleware,
   (req: Request, res: Response) => {
-    const agencia = parseInt(req.params.agencia ?? "", 10);
-    const numeroConta = parseInt(req.params.numero ?? "", 10);
-    // buscar uma conta com a mesma agencia e numero
-    // const conta = contas.find((c) => {
-    //   if ((c.agencia === agencia) && (c.numero === numeroConta)) {
-    //     return c;
-    //   }
-    // })
-
-    const conta = contas.find(
-      (c) => c.agencia === agencia && c.numero === numeroConta
-    );
-    // senão encontrar, retorna status 404 com mensagem de erro, conta não encontrada
-    if (!conta) {
-      res.status(404).send({ error: "Conta Inválida" });
+    const { agencia, numero } = req.params;
+    if (!agencia || !numero) {
+      res.status(400).send({error: "Agência ou conta inválida"});
       return;
     }
-    // se encontrar, retorna status 200 e os dados da conta
-    res.status(200).send(buildContaResponse(conta));
+    const conta = contas.find(
+      (c) => c.agencia === parseInt(agencia)&& c.numero === parseInt(numero)
+    );
+    if (!conta){
+      res.status(404).send({error: "Conta não encontrada!"});
+      return;
+    }
+    const {
+      agencia: agenciaConta,
+      numero: numeroConta,
+    } = conta;
+    res.send ({
+      agencia: agenciaConta,
+      numero: numeroConta,
+    });
   }
 );
-
-// GET /:agencia/:numero/saldo -> Retorna somente o saldo da conta
+// GET /:agencia/:numero/saldo - > Retorna somente o saldo da conta
 contaCorrenteRoutes.get(
   "/:agencia/:numero/saldo",
   authenticatedMiddleware,
   (req: Request, res: Response) => {
-    const agencia = parseInt(req.params.agencia ?? "", 10);
-    const numeroConta = parseInt(req.params.numero ?? "", 10);
-
-    const conta = contas.find(
-      (c) => c.agencia === agencia && c.numero === numeroConta
-    );
-    // senão encontrar, retorna status 404 com mensagem de erro, conta não encontrada
-    if (!conta) {
-      res.status(404).send({ error: "Conta Inválida" });
+    const { agencia, numero } = req.params;
+    if (!agencia || !numero) {
+      res.status(400).send({error: "Agência ou numero inválido"});
       return;
     }
-    // se encontrar, retorna status 200 e os dados da conta
-    res.status(200).send({ saldo: conta.saldo });
+    const conta = contas.find(
+      (c) => c.agencia === parseInt(agencia)&& c.numero === parseInt(numero)
+    );
+    if (!conta){
+      res.status(404).send({error: "Conta não encontrada!"});
+      return;
+    }
+    res.send ({
+      saldo: conta.saldo
+    });
   }
 );
 
 // PATCH /saldo
-contaCorrenteRoutes.patch(
-  "/saldo",
-  authenticatedMiddleware,
-  (req: Request, res: Response) => {
-    const userId = req.headers["user-id"];
-    const { valor, tipo_operacao: tipoOperacao } = req.body;
-
-    const contaIndex = contas.findIndex((c) => c.id === userId);
-
-    // senão encontrar, retorna status 404 com mensagem de erro, conta não encontrada
-    if (contaIndex < 0) {
-      res.status(404).send({ error: "Conta Inválida" });
-      return;
-    }
-
-    // se encontrar, atualiza o saldo e retorna status 200 e o saldo atualizado
-    contas[contaIndex].setSaldo(valor, tipoOperacao);
-    res.status(200).send({
-      id: contas[contaIndex].id,
-      saldo: contas[contaIndex].saldo,
-    });
-  }
-);
 
 // DELETE /
 
@@ -169,32 +167,8 @@ function authenticatedMiddleware(
     res.status(403).send({ error: "Não Autorizado" });
     return;
   }
-  req.headers["user-id"] = payload.id;
+
   next();
-}
-
-function buildContaResponse(conta: ContaCorrente) {
-  const {
-    id: idConta,
-    agencia,
-    numero,
-    nomeCliente,
-    cpf,
-    dataNascimento,
-    dataCriacao,
-    saldo,
-  } = conta;
-
-  return {
-    id: idConta,
-    agencia,
-    numero,
-    nome_cliente: nomeCliente,
-    cpf,
-    data_nascimento: dataNascimento,
-    data_criacao: dataCriacao,
-    saldo,
-  };
 }
 
 export { contaCorrenteRoutes };
