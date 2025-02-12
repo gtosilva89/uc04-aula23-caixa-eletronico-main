@@ -86,9 +86,55 @@ contaCorrenteRoutes.post("/auth", (req: Request, res: Response) => {
   res.status(201).send({ token });
 });
 
-// GET /:agencia/:numero
-
-// GET /:agencia/:numero/saldo
+// GET /:agencia/:numero -> Retorna os dados da conta
+contaCorrenteRoutes.get(
+  "/:agencia/:numero",
+  authenticatedMiddleware,
+  (req: Request, res: Response) => {
+    const { agencia, numero } = req.params;
+    if (!agencia || !numero) {
+      res.status(400).send({error: "Agência ou conta inválida"});
+      return;
+    }
+    const conta = contas.find(
+      (c) => c.agencia === parseInt(agencia)&& c.numero === parseInt(numero)
+    );
+    if (!conta){
+      res.status(404).send({error: "Conta não encontrada!"});
+      return;
+    }
+    const {
+      agencia: agenciaConta,
+      numero: numeroConta,
+    } = conta;
+    res.send ({
+      agencia: agenciaConta,
+      numero: numeroConta,
+    });
+  }
+);
+// GET /:agencia/:numero/saldo - > Retorna somente o saldo da conta
+contaCorrenteRoutes.get(
+  "/:agencia/:numero/saldo",
+  authenticatedMiddleware,
+  (req: Request, res: Response) => {
+    const { agencia, numero } = req.params;
+    if (!agencia || !numero) {
+      res.status(400).send({error: "Agência ou numero inválido"});
+      return;
+    }
+    const conta = contas.find(
+      (c) => c.agencia === parseInt(agencia)&& c.numero === parseInt(numero)
+    );
+    if (!conta){
+      res.status(404).send({error: "Conta não encontrada!"});
+      return;
+    }
+    res.send ({
+      saldo: conta.saldo
+    });
+  }
+);
 
 // PATCH /saldo
 
