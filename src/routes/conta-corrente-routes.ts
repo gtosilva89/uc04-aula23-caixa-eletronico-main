@@ -14,25 +14,49 @@ const contas: ContaCorrente[] = [
   ),
 ];
 
-// GET /:id -> Retornar a conta corrente pelo id
-contaCorrenteRoutes.get(
-  "/:id",
-  authenticatedMiddleware,
-  (req: Request, res: Response) => {
-    const { id } = req.params;
+type createConta = {
+  agencia: number;
+  numero: number;
+  nome: string;
+  cpf: string;
+  data_nascimento: string;
+};
 
-    if (!id) {
-      res.status(400).send({ error: "Id da conta inválido" });
+// POST /
+contaCorrenteRoutes.post(
+  "/",
+  (req: Request<{}, {}, createConta>, res: Response) => {
+    const { agencia, numero, nome, cpf, data_nascimento } = req.body;
+    const contaEncontrada = contas.find(
+      (c) => c.cpf === cpf || (c.agencia === agencia && c.numero === numero)
+    );
+
+    if (contaEncontrada) {
+      res.status(400).send({
+        error: "Não é possível criar uma nova conta.",
+      });
       return;
     }
 
-    const conta = contas.find((c) => c.id === id);
-    if (!conta) {
-      res.status(404).send({ error: "Conta não encontrada" });
+    try {
+      let dataNascimento = new Date(data_nascimento);
+      const novaConta = new ContaCorrente(
+        agencia,
+        numero,
+        nome,
+        cpf,
+        dataNascimento,
+        new Date()
+      );
+      contas.push(novaConta);
+      const response = buildContaResponse(novaConta);
+      console.log("Nova Conta", response);
+      res.status(200).send(response);
+    } catch (error) {
+      console.log(error);
+      res.status(500).send({ error });
       return;
     }
-
-    res.status(200).send(buildContaResponse(conta));
   }
 );
 
@@ -66,6 +90,28 @@ contaCorrenteRoutes.post("/auth", (req: Request, res: Response) => {
 
   res.status(201).send({ token });
 });
+
+// GET /:id -> Retornar a conta corrente pelo id
+contaCorrenteRoutes.get(
+  "/:id",
+  authenticatedMiddleware,
+  (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    if (!id) {
+      res.status(400).send({ error: "Id da conta inválido" });
+      return;
+    }
+
+    const conta = contas.find((c) => c.id === id);
+    if (!conta) {
+      res.status(404).send({ error: "Conta não encontrada" });
+      return;
+    }
+
+    res.status(200).send(buildContaResponse(conta));
+  }
+);
 
 // GET /:agencia/:numero -> Retorna os dados da conta
 contaCorrenteRoutes.get(
@@ -115,13 +161,13 @@ contaCorrenteRoutes.get(
   }
 );
 
-// PATCH /saldo
+// PATCH /deposito
 contaCorrenteRoutes.patch(
-  "/saldo",
+  "/deposito",
   authenticatedMiddleware,
   (req: Request, res: Response) => {
     const userId = req.headers["user-id"];
-    const { valor, tipo_operacao: tipoOperacao } = req.body;
+    const { valor } = req.body;
 
     const contaIndex = contas.findIndex((c) => c.id === userId);
 
@@ -132,7 +178,32 @@ contaCorrenteRoutes.patch(
     }
 
     // se encontrar, atualiza o saldo e retorna status 200 e o saldo atualizado
-    contas[contaIndex].setSaldo(valor, tipoOperacao);
+    contas[contaIndex].setSaldo(valor, "C");
+    res.status(200).send({
+      id: contas[contaIndex].id,
+      saldo: contas[contaIndex].saldo,
+    });
+  }
+);
+
+// PATCH /deposito
+contaCorrenteRoutes.patch(
+  "/saque",
+  authenticatedMiddleware,
+  (req: Request, res: Response) => {
+    const userId = req.headers["user-id"];
+    const { valor } = req.body;
+
+    const contaIndex = contas.findIndex((c) => c.id === userId);
+
+    // senão encontrar, retorna status 404 com mensagem de erro, conta não encontrada
+    if (contaIndex < 0) {
+      res.status(404).send({ error: "Conta Inválida" });
+      return;
+    }
+
+    // se encontrar, atualiza o saldo e retorna status 200 e o saldo atualizado
+    contas[contaIndex].setSaldo(valor, "D");
     res.status(200).send({
       id: contas[contaIndex].id,
       saldo: contas[contaIndex].saldo,
@@ -141,6 +212,28 @@ contaCorrenteRoutes.patch(
 );
 
 // DELETE /
+contaCorrenteRoutes.delete(
+  "/",
+  authenticatedMiddleware,
+  (req: Request, res: Response) => {
+    const userId = req.headers["user-id"];
+    const contaIndex = contas.findIndex((c) => c.id === userId);
+    // senão encontrar, retorna status 404 com mensagem de erro, conta não encontrada
+    if (contaIndex < 0) {
+      res.status(404).send({ error: "Conta Inválida" });
+      return;
+    }
+
+    if (contas[contaIndex].saldo > 0) {
+      res
+        .status(403)
+        .send({ error: "Está conta possuí saldo e não pode ser encerrada." });
+      return;
+    }
+    contas.splice(contaIndex, 1);
+    res.status(204).send();
+  }
+);
 
 // middleware - usuario autenticado
 function authenticatedMiddleware(
